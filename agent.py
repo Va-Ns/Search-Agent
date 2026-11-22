@@ -1,14 +1,16 @@
 import ollama
+import trafilatura
 from ddgs import DDGS
 
 
-# ---------- 1. The tool ----------
+# ---------- 1. Tools ----------
 # The model never sees this code. It sees only the name, the type hint and the docstring
 def web_search(query:str) -> str:
     """
         Search the web and return the top 5 results (title, link, snippet).
 
         Args:
+            
             query: what to search for, phrased like a search-engine query
     """
 
@@ -28,19 +30,58 @@ def web_search(query:str) -> str:
             for i, r in enumerate(results, 1)
                       )
 
+MAX_PAGE_CHARS = 12000 # about 3k tokens, so two pages fit in the context
+
+def read_page(url: str) -> str: 
+
+    """
+
+        Open a web page and return its main text (no menus or ads).
+        Use it on the most relevant search results when the snippets are not enough.
+
+        Args: 
+
+            url: the full address of the page, copied from a search result.
+
+    """
+
+    html = trafilatura.fetch_url(url)
+
+    if html is None: 
+
+        return f"Couldn't fetch {url}. Try another result."
+
+    text = trafilatura.extract(html)
+
+    if not text: 
+
+        return f"No readable text found at {url} (the page may need JavaScript). Try another result."
+
+    if len(text) > MAX_PAGE_CHARS:
+
+        text = text[:MAX_PAGE_CHARS] + "\n\n[page truncated]"
+
+    return text
+
+TOOLS = {"web_search": web_search, "read_page": read_page} # Every entry of dictionary points to the corresponding function.
+
 
 # ---------- 2. Settings ----------
 MODEL = "qwen3:8b"
-MAX_STEPS = 5 # We put a safety cap of 5 model calls per question
+MAX_STEPS = 8 # With the search + reading of pages, we need more rounds
+CONTEXT_TOKENS = 16384 
 
 messages = [
                 {"role": "system",
-                 "content": "You are a helpful assistant running in a loop with access to a web_search tool. "
-                                  "Use it for anything recent or factual you are unsure about. You may call it several times. "
-                                  "Search results often contain some irrelevant entries: ignore those and use the relevant ones. "
-                                  "If the results are poor, search again with a different, more specific query; "
-                                  "never repeat the same query. "
-                                  "Base your answer on the search results and end it with a 'Sources:' list of the URLs you used."
+                 "content": "You are a helpful assistant running in a loop with two tools: "
+                            "web_search to find pages and read_page to read a page in full. "
+                            "For anything recent or factual you are unsure about, search first. "
+                            "Search results often contain some irrelevant entries: ignore those. "
+                            "If the snippets do not fully answer the question, use read_page on the "
+                            "one or two most relevant results. "
+                            "If results are poor, search again with a different, more specific query; "
+                            "never repeat the same query. "
+                            "Base your answer on what you found and end it with a 'Sources:' list of the URLs you used."
                 }
             ]
 
@@ -61,7 +102,12 @@ while True:
 
     for step in range(MAX_STEPS):
 
-        response = ollama.chat(model = MODEL, messages = messages, tools = [web_search])
+        response = ollama.chat(model = MODEL, 
+                               messages = messages, 
+                               tools = list(TOOLS.values()),
+                               options = {"num_ctx": CONTEXT_TOKENS}
+
+        )
 
         messages.append(response.message) # Remember what the model said
 
@@ -71,23 +117,41 @@ while True:
 
         for call in response.message.tool_calls: # In the case where the model does call the tool
 
-            print(f"  [step  {step+1}] {call.function.name}({call.function.arguments})")
+            name, args = call.function.name, call.function.arguments
 
-            result = web_search(**call.function.arguments)
+            print(f"  [step  {step+1}] {name}({args})")
 
-            for line in result.splitlines():
+            function = TOOLS.get(name)
+
+            if function is None: 
+
+                result = f"Unknown tool: {name}. Available tools: {', '.join(TOOLS)}."
+
+            else: 
+
+                result = function(**args)
                 
-                if line.startswith("["):        # only the numbered title lines
-                    
-                    print("      " + line)
+            # Trace: show what came back 
+
+            if name == "web_search": 
+
+                for line in result.splitlines(): 
+
+                    if line.startswith("["):
+
+                        print("     " + line)
+
+            else: 
+
+                print(f"     returned {len(result)} characters: {result[:80]!r}...")
 
             messages.append(
                             {"role": "tool",
                              "content": result,
-                             "tool_name": call.function.name}
+                             "tool_name": name}
                            )
-    else:
+        else: 
 
-        print("  [stopped: reached MAX_STEPS]")
+            print("  [stopped: reached MAX_STEPS]")
 
-    print("\nAgent: ", response.message.content)
+        print("\nAgent:", response.message.content)
