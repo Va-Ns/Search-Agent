@@ -72,8 +72,8 @@ while True:
                              "content": result,
                              "tool_name": call.function.name}
                            )
-        else:
+    else:
 
-            print("  [stopped: reached MAX_STEPS]")
+        print("  [stopped: reached MAX_STEPS]")
 
-        print("\nAgent: ", response.message.content)
+    print("\nAgent: ", response.message.content)
