@@ -21,18 +21,26 @@ def web_search(query:str) -> str:
 
         return f"Search failed: {e}" # Tell the model what went wrong instead of just crashing
 
-    return "\n\n".join(f"{r['title']}\n{r['href']}\n{r['body']}" for r in results)
+    return "\n\n".join(
+        
+            f"[{i}] {r['title']}\nURL: {r['href']}\nSnippet: {r['body']}"
+            
+            for i, r in enumerate(results, 1)
+                      )
 
 
 # ---------- 2. Settings ----------
 MODEL = "qwen3:8b"
-MAX_STEPS = 5 # We put a saafety cap of 5 model calls per question
+MAX_STEPS = 5 # We put a safety cap of 5 model calls per question
 
 messages = [
                 {"role": "system",
-                 "content": "You are a helpful assistant running in a loop with access to a web_search tool."
-                 "Use it for anything recent or factual you are unsure about. You may call it several times."
-                 "When you answer, mention the sources you used."
+                 "content": "You are a helpful assistant running in a loop with access to a web_search tool. "
+                                  "Use it for anything recent or factual you are unsure about. You may call it several times. "
+                                  "Search results often contain some irrelevant entries: ignore those and use the relevant ones. "
+                                  "If the results are poor, search again with a different, more specific query; "
+                                  "never repeat the same query. "
+                                  "Base your answer on the search results and end it with a 'Sources:' list of the URLs you used."
                 }
             ]
 
@@ -66,6 +74,12 @@ while True:
             print(f"  [step  {step+1}] {call.function.name}({call.function.arguments})")
 
             result = web_search(**call.function.arguments)
+
+            for line in result.splitlines():
+                
+                if line.startswith("["):        # only the numbered title lines
+                    
+                    print("      " + line)
 
             messages.append(
                             {"role": "tool",
