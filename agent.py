@@ -1,3 +1,5 @@
+from datetime import date
+
 import ollama
 import trafilatura
 from ddgs import DDGS
@@ -17,7 +19,7 @@ def web_search(query:str) -> str:
     try:
 
 
-        results = DDGS().text(query, max_results=5)
+        results = DDGS(timeout=15).text(query, max_results=5)
 
     except Exception as e:
 
@@ -73,7 +75,8 @@ CONTEXT_TOKENS = 16384
 
 messages = [
                 {"role": "system",
-                 "content": "You are a helpful assistant running in a loop with two tools: "
+                    "content": f"Today's date is {date.today()}."
+                            "You are a helpful assistant running in a loop with two tools: "
                             "web_search to find pages and read_page to read a page in full. "
                             "For anything recent or factual you are unsure about, search first. "
                             "Search results often contain some irrelevant entries: ignore those. "
@@ -133,7 +136,7 @@ while True:
                 
             # Trace: show what came back 
 
-            if name == "web_search": 
+            if name == "web_search" and not result.startswith("Search failed."): 
 
                 for line in result.splitlines(): 
 
@@ -150,8 +153,8 @@ while True:
                              "content": result,
                              "tool_name": name}
                            )
-        else: 
+    else: 
 
-            print("  [stopped: reached MAX_STEPS]")
+        print("  [stopped: reached MAX_STEPS]")
 
-        print("\nAgent:", response.message.content)
+    print("\nAgent:", response.message.content)
