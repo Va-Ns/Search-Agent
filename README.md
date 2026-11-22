@@ -81,3 +81,7 @@ A larger context needs more memory. On a 6 GB laptop GPU, `qwen3:8b` ran with 30
 ## Documentation
 
 - [`docs/PROMPT_EVALUATION.md`](docs/PROMPT_EVALUATION.md): how the system prompt was evaluated and improved, with a progress table.
+
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE.md). Free to use, modify and share for any **noncommercial** purpose (personal study, research, hobby projects, education, nonprofits), as long as you keep the `Required Notice` line, i.e. credit the author. **Commercial use requires the author's permission.**
