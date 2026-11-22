@@ -85,6 +85,12 @@ messages = [
                             "If results are poor, search again with a different, more specific query; "
                             "never repeat the same query. "
                             "Base your answer on what you found and end it with a 'Sources:' list of the URLs you used."
+                            "Your own knowledge is outdated: for any question about recent events, "
+                            "always search, including follow-up questions. "
+                            "If your searches fail or find nothing relevant, say so plainly; never claim "
+                            "that something has not happened based on your own knowledge. "
+                            "Only list sources that appeared in your tool results. "
+                            "News headlines can exaggerate: when they make big claims, read the article before reporting them."
                 }
             ]
 
@@ -136,7 +142,7 @@ while True:
                 
             # Trace: show what came back 
 
-            if name == "web_search" and not result.startswith("Search failed."): 
+            if name == "web_search" and not result.startswith("Search failed"): 
 
                 for line in result.splitlines(): 
 
